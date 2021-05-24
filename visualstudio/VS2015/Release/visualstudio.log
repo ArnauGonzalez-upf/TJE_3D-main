@@ -1,0 +1,39 @@
+﻿  scene.cpp
+C:\Users\Eduardo\Desktop\TJE_3D-main\src\framework.h(372,105): warning C4244: 'return': conversión de 'double' a 'float'; posible pérdida de datos
+C:\Users\Eduardo\Desktop\TJE_3D-main\src\scene.cpp(83,12): warning C4244: 'inicializando': conversión de 'double' a 'float'; posible pérdida de datos
+C:\Users\Eduardo\Desktop\TJE_3D-main\src\scene.cpp(84,12): warning C4244: 'inicializando': conversión de 'double' a 'float'; posible pérdida de datos
+C:\Users\Eduardo\Desktop\TJE_3D-main\src\scene.cpp(85,12): warning C4244: 'inicializando': conversión de 'double' a 'float'; posible pérdida de datos
+C:\Users\Eduardo\Desktop\TJE_3D-main\src\scene.cpp(92,12): warning C4244: 'inicializando': conversión de 'double' a 'float'; posible pérdida de datos
+C:\Users\Eduardo\Desktop\TJE_3D-main\src\scene.cpp(93,12): warning C4244: 'inicializando': conversión de 'double' a 'float'; posible pérdida de datos
+C:\Users\Eduardo\Desktop\TJE_3D-main\src\scene.cpp(94,12): warning C4244: 'inicializando': conversión de 'double' a 'float'; posible pérdida de datos
+C:\Users\Eduardo\Desktop\TJE_3D-main\src\scene.cpp(119,59): warning C4305: 'argumento': truncamiento de 'double' a 'float'
+C:\Users\Eduardo\Desktop\TJE_3D-main\src\scene.cpp(136,12): warning C4244: 'inicializando': conversión de 'double' a 'float'; posible pérdida de datos
+C:\Users\Eduardo\Desktop\TJE_3D-main\src\scene.cpp(137,12): warning C4244: 'inicializando': conversión de 'double' a 'float'; posible pérdida de datos
+C:\Users\Eduardo\Desktop\TJE_3D-main\src\scene.cpp(138,12): warning C4244: 'inicializando': conversión de 'double' a 'float'; posible pérdida de datos
+C:\Users\Eduardo\Desktop\TJE_3D-main\src\scene.cpp(143,20): warning C4244: 'inicializando': conversión de 'double' a 'float'; posible pérdida de datos
+C:\Users\Eduardo\Desktop\TJE_3D-main\src\scene.cpp(150,12): warning C4244: 'inicializando': conversión de 'double' a 'float'; posible pérdida de datos
+C:\Users\Eduardo\Desktop\TJE_3D-main\src\scene.cpp(151,12): warning C4244: 'inicializando': conversión de 'double' a 'float'; posible pérdida de datos
+C:\Users\Eduardo\Desktop\TJE_3D-main\src\scene.cpp(152,12): warning C4244: 'inicializando': conversión de 'double' a 'float'; posible pérdida de datos
+C:\Users\Eduardo\Desktop\TJE_3D-main\src\scene.cpp(169,12): warning C4244: 'inicializando': conversión de 'double' a 'float'; posible pérdida de datos
+C:\Users\Eduardo\Desktop\TJE_3D-main\src\scene.cpp(170,12): warning C4244: 'inicializando': conversión de 'double' a 'float'; posible pérdida de datos
+C:\Users\Eduardo\Desktop\TJE_3D-main\src\scene.cpp(171,12): warning C4244: 'inicializando': conversión de 'double' a 'float'; posible pérdida de datos
+C:\Users\Eduardo\Desktop\TJE_3D-main\src\scene.cpp(176,12): warning C4244: 'inicializando': conversión de 'double' a 'float'; posible pérdida de datos
+C:\Users\Eduardo\Desktop\TJE_3D-main\src\scene.cpp(177,12): warning C4244: 'inicializando': conversión de 'double' a 'float'; posible pérdida de datos
+C:\Users\Eduardo\Desktop\TJE_3D-main\src\scene.cpp(178,12): warning C4244: 'inicializando': conversión de 'double' a 'float'; posible pérdida de datos
+C:\Users\Eduardo\Desktop\TJE_3D-main\src\scene.cpp(199,42): warning C4305: 'argumento': truncamiento de 'time_t (__cdecl *)(time_t *const )' a 'bool'
+C:\Users\Eduardo\Desktop\TJE_3D-main\src\scene.cpp(214,20): warning C4018: '<': no coinciden signed/unsigned
+C:\Users\Eduardo\Desktop\TJE_3D-main\src\scene.cpp(285,62): warning C4305: 'argumento': truncamiento de 'double' a 'float'
+C:\Users\Eduardo\Desktop\TJE_3D-main\src\scene.cpp(292,36): warning C4305: 'argumento': truncamiento de 'time_t (__cdecl *)(time_t *const )' a 'bool'
+C:\Users\Eduardo\Desktop\TJE_3D-main\src\scene.cpp(294,21): warning C4018: '<': no coinciden signed/unsigned
+C:\Users\Eduardo\Desktop\TJE_3D-main\src\scene.cpp(329,21): warning C4018: '<': no coinciden signed/unsigned
+C:\Users\Eduardo\Desktop\TJE_3D-main\src\scene.cpp(353,70): warning C4244: 'argumento': conversión de 'double' a 'float'; posible pérdida de datos
+C:\Users\Eduardo\Desktop\TJE_3D-main\src\scene.cpp(354,71): warning C4244: 'argumento': conversión de 'double' a 'float'; posible pérdida de datos
+C:\Users\Eduardo\Desktop\TJE_3D-main\src\scene.cpp(362,20): warning C4018: '<': no coinciden signed/unsigned
+LINK : warning LNK4098: la biblioteca predeterminada'LIBCMT' entra en conflicto con otras bibliotecas; use la biblioteca /NODEFAULTLIB:biblioteca
+  Generando código
+  1 of 2255 functions (<0.1%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
+    12 functions had inline decision re-evaluated but remain unchanged
+  Generación de código finalizada
+glew32s.lib(glew.obj) : warning LNK4099: no se encontró PDB 'vc120.pdb' con 'glew32s.lib(glew.obj)' o en 'C:\Users\Eduardo\Desktop\TJE_3D-main\vc120.pdb'; se vinculará el objeto sin tener en cuenta información de depuración
+  visualstudio.vcxproj -> C:\Users\Eduardo\Desktop\TJE_3D-main\game.exe
