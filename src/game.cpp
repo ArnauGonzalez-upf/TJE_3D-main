@@ -6,6 +6,9 @@
 #include "shader.h"
 #include "input.h"
 #include "animation.h"
+#include <iostream>
+#include <fstream>
+#include "pathfinders.h"
 
 #include <cmath>
 
@@ -46,8 +49,6 @@ Game::Game(int window_width, int window_height, SDL_Window* window)
 	//hide the cursor
 	SDL_ShowCursor(!mouse_locked); //hide or show the mouse
 
-	scene = Scene::Get("data/pueblo.txt");
-
 	camara_tercera = true;
 	new EditorStage();
 
@@ -58,6 +59,42 @@ Game::Game(int window_width, int window_height, SDL_Window* window)
 	combat_counter = 4;
 	attack_change = true;
 	//camera_mode = FOLLOWING;
+	
+	TextParser* parser = new TextParser("data/path2.txt");
+
+	map_array = new uint8[36 * 72];
+
+	for (int i = 0; i < 36; ++i)
+	{
+		for (int j = 0; j < 72; ++j) {
+			//map_array[(35 - i) * 72 + (71 - j)] = parser->getint();
+			map_array[i * 36 + j] = parser->getint();
+			std::cout << std::to_string((35 - i)) + " " + std::to_string((71 - j)) << std::endl;
+		}
+	}
+
+	/*for (int i = 0; i < 36; ++i)
+	{
+		for (int j = 0; j < 72; ++j) {
+			//map_array[(35 - i) * 72 + (71 - j)] = parser->getint();
+			map[i][71-j] = parser->getint();
+			//std::cout << std::to_string((35 - i)) + " " + std::to_string((71 - j)) << std::endl;
+		}
+	}
+
+	for (int i = 0; i < 36; ++i)
+	{
+		for (int j = 0; j < 72; ++j) {
+			//map_array[(35 - i) * 72 + (71 - j)] = parser->getint();
+			map_array[i * 36 + j] = map[i][j];
+			//std::cout << std::to_string((35 - i)) + " " + std::to_string((71 - j)) << std::endl;
+		}
+	}*/
+
+	scene = Scene::Get("data/pueblo.txt");
+	shader = Shader::Get("data/shaders/basic.vs", "data/shaders/flat.fs");
+
+	//scene->exportEscene();
 }
 
 //what to do when the image has to be draw
@@ -117,34 +154,38 @@ void Game::render(void)
 	//Casa
 	//camera->lookAt(Vector3(0.0f, 15.0f, -1.0f), Vector3(0,0,-1.01f), camera->up);*/
 
-	if (camera_mode == FOLLOWING)
-	{
-		if (camara_tercera)
+	if (!edit_mode) {
+		if (camera_mode == FOLLOWING)
 		{
-			Vector3 eye = *(scene->player->model) * Vector3(0.0f, 3.0f, -3.0f);
-			Vector3 center = *(scene->player->model) * Vector3(0.0f, 2.0f, -0.1f);
-			Vector3 up = scene->player->model->rotateVector(Vector3(0.0f, 1.0f, 0.0f));
-			camera->lookAt(eye, center, up);
+			if (camara_tercera)
+			{
+				Vector3 eye = *(scene->player->model) * Vector3(-1.0f, 2.0f, -2.0f);
+				Vector3 center = *(scene->player->model) * Vector3(-1.0f, 1.5f, -0.1f);
+				Vector3 up = scene->player->model->rotateVector(Vector3(0.0f, 1.0f, 0.0f));
+				camera->lookAt(eye, center, up);
+			}
+			else
+			{
+				Vector3 eye = *(scene->player->model) * Vector3(0.0f, 2.0f, 0.0f);
+				Vector3 center = *(scene->player->model) * Vector3(0.0f, 1.99f, 0.1f);
+				Vector3 up = scene->player->model->rotateVector(Vector3(0.0f, 1.0f, 0.0f));
+				camera->lookAt(eye, center, up);
+			}
 		}
-		else
+		else if (camera_mode == CENTERED)
 		{
-			Vector3 eye = *(scene->player->model) * Vector3(0.0f, 2.0f, 0.0f);
-			Vector3 center = *(scene->player->model) * Vector3(0.0f, 1.99f, 0.1f);
-			Vector3 up = scene->player->model->rotateVector(Vector3(0.0f, 1.0f, 0.0f));
-			camera->lookAt(eye, center, up);
+			Vector3 center = *(scene->player->model) * Vector3(0.0f, 2.0f, 0.0f);
+			camera->lookAt(camera->eye, center, camera->up);
+		}
+		else if (camera_mode == FOLLOWING_LATERAL)
+		{
+			Vector3 eye = *(scene->player->model) * Vector3(-5.0f, 1.0f, 0.0f);
+			Vector3 center = *(scene->player->model) * Vector3(0.0f, 2.0f, 0.0f);
+			camera->lookAt(eye, center, camera->up);
 		}
 	}
-	else if (camera_mode == CENTERED)
-	{
-		Vector3 center = *(scene->player->model) * Vector3(0.0f, 2.0f, 0.0f);
-		camera->lookAt(camera->eye, center, camera->up);
-	}
-	else if (camera_mode == FOLLOWING_LATERAL)
-	{
-		Vector3 eye = *(scene->player->model) * Vector3(-5.0f, 1.0f, 0.0f);
-		Vector3 center = *(scene->player->model) * Vector3(0.0f, 2.0f, 0.0f);
-		camera->lookAt(eye, center, camera->up);
-	}
+
+	std::cout << edit_mode << std::endl;
 
 	//set flags
 	glDisable(GL_BLEND);
@@ -160,7 +201,7 @@ void Game::render(void)
 
 	for (int i = 0; i < scene->lights.size(); ++i)
 	{
-		EntityLight* light = scene->lights[0];
+		EntityLight* light = scene->lights[i];
 
 		if (light->light_type == DIRECTIONAL)
 			shadowMapping(light, camera);
@@ -172,11 +213,46 @@ void Game::render(void)
 		ent->render(camera);
 	}
 
+	if (current_path_steps > 0)
+	{
+		Mesh* mesh = new Mesh();
+		for (size_t i = 0; i < current_path_steps; i++)
+		{
+			Vector3 pos;
+			int gridIndex = path[i];
+			//std::cout << std::to_string(gridIndex) << std::endl;
+			int posxgrid = gridIndex % 36;
+			int posygrid = gridIndex / 36;
+
+			 pos = Vector3(posxgrid, 1.0f, posygrid);
+			 mesh->vertices.push_back(pos);
+			 //std::cout << std::to_string(posxgrid) + " " + std::to_string(posygrid) << std::endl;
+		}
+
+		//enable shader
+		shader->enable();
+
+		shader->setVector3("u_ambient_light", Vector3(0.3, 0.3, 0.3));
+
+		//upload uniforms
+		shader->setUniform("u_color", Vector4(1, 1, 1, 1));
+		shader->setUniform("u_viewprojection", camera->viewprojection_matrix);
+		shader->setUniform("u_model", Matrix44());
+		shader->setUniform("u_time", time);
+
+		mesh->render(GL_LINE_STRIP);
+
+		shader->disable() ;
+	}
+
 	//Draw the floor grid
 	//drawGrid();
 
 	//render the FPS, Draw Calls, etc
 	drawText(2, 2, getGPUStats(), Vector3(1, 1, 1), 2);
+
+	std::string pos = std::to_string(scene->player->getPosition().x) + std::to_string(scene->player->getPosition().z);
+	drawText(1, 20, pos, Vector3(1, 1, 1), 2);
 
 	if (combat_mode)
 	{
@@ -208,7 +284,35 @@ void Game::shadowMapping(EntityLight* light, Camera* camera)
 		//if bounding box is inside the camera frustum then the object is probably visible
 		if (light->cam->testBoxInFrustum(world_bounding.center, world_bounding.halfsize) && ent->name != "MUROS")
 		{
-			renderMeshWithMaterialShadow(*ent->model, ent->mesh, light);
+			//renderMeshWithMaterialShadow(*ent->model, ent->mesh, light);
+
+			//define locals to simplify coding
+			Shader* shader = NULL;
+
+			if (ent->type == DYNAMIC) { shader = Shader::Get("data/shaders/skinning.vs", "data/shaders/shadowmap.fs"); }
+			else { shader = Shader::Get("data/shaders/basic.vs", "data/shaders/shadowmap.fs"); }
+
+			assert(glGetError() == GL_NO_ERROR);
+
+			shader->enable();
+
+			Matrix44 shadow_proj = light->cam->viewprojection_matrix;
+			shader->setUniform("u_viewprojection", shadow_proj);
+			shader->setUniform("u_model", *ent->model);
+
+			if (ent->type == DYNAMIC)
+			{
+				ent->mesh->renderAnimated(GL_TRIANGLES, &ent->anim->skeleton);
+			}
+			else {
+				ent->mesh->render(GL_TRIANGLES);
+			}
+
+			shader->disable();
+
+			//set the render state as it was before to avoid problems with future renders
+			glDisable(GL_BLEND);
+			glDepthFunc(GL_LESS); //as default
 		}
 	}
 
@@ -287,6 +391,8 @@ void Game::update(double seconds_elapsed)
 			Input::centerMouse();
 
 		AddObjectInFront();
+
+
 	}
 
 
@@ -349,10 +455,58 @@ void Game::update(double seconds_elapsed)
 //Keyboard event handler (sync input)
 void Game::onKeyDown( SDL_KeyboardEvent event )
 {
+	std::ofstream myfile;
 	switch(event.keysym.sym)
 	{
-		case SDLK_ESCAPE: must_exit = true; break; //ESC key, kill the app
+		case SDLK_ESCAPE: must_exit = true; //ESC key, kill the app
+			myfile.open("data/path2.txt"); //CAMBIA AL ARCHIVO QUE ESTES EDITANDO				
+							
+			for (int i = 0; i < 36; ++i)
+			{
+				for (int j = 0; j < 72; ++j) {
+					//myfile << /*std::to_string(0)*/std::to_string(map[i][j]) + " ";
+					myfile << std::to_string(1) + " ";
+
+					if (j != 71) { myfile << " "; }
+					else { myfile << "\n"; }
+				}
+			}
+			myfile.close();
+			std::cout << "bruh";
+			break;
 		case SDLK_F1: Shader::ReloadAll(); break; 
+
+		case SDLK_7:
+		{
+			Vector3 origin = camera->eye;
+			Vector3 dir = camera->getRayDirection(Input::mouse_position.x, Input::mouse_position.y, window_width, window_height);
+			Vector3 pos = RayPlaneCollision(Vector3(), Vector3(0, 1, 0), origin, dir);
+
+			startx = clamp(floor(pos.x), 0, 36);
+			starty = clamp(floor(pos.z), 0, 72);
+		}
+
+		case SDLK_8:
+		{
+			Vector3 origin = camera->eye;
+			Vector3 dir = camera->getRayDirection(Input::mouse_position.x, Input::mouse_position.y, window_width, window_height);
+			Vector3 pos = RayPlaneCollision(Vector3(), Vector3(0, 1, 0), origin, dir);
+
+			int targetx = clamp(floor(pos.x), 0, 36);
+			int targety = clamp(floor(pos.z), 0, 72);
+
+			current_path_steps = BFSFindPath(
+				startx, starty, //origin (tienen que ser enteros)
+				targetx, targety, //target (tienen que ser enteros)
+				map_array, //pointer to map data
+				36, 72, //map width and height
+				path, //pointer where the final path will be stored
+				100); //max supported steps of the final path
+
+			std::cout << std::to_string(startx) + " " + std::to_string(starty) << std::endl;
+			std::cout << std::to_string(targetx) + " " + std::to_string(targety) << std::endl;
+
+		}
 	}
 }
 
@@ -403,7 +557,7 @@ void Game::AddObjectInFront()
 	Vector3 dir = camera->getRayDirection(Input::mouse_position.x, Input::mouse_position.y, window_width, window_height);
 	Vector3 pos = RayPlaneCollision(Vector3(), Vector3(0, 1, 0), origin, dir);
 
-	if (Input::wasKeyPressed(SDL_SCANCODE_1))
+	/*if (Input::wasKeyPressed(SDL_SCANCODE_1))
 	{
 		EntityMesh* entity = new EntityMesh("casa");
 		entity->model->setTranslation(pos.x, pos.y, pos.z);
@@ -596,18 +750,6 @@ void Game::AddObjectInFront()
 		scene->entities.push_back(entity);
 	}
 
-	if (Input::wasKeyPressed(SDL_SCANCODE_H))
-	{
-		EntityMesh* entity = new EntityMesh("bar");
-		entity->model->setTranslation(pos.x, pos.y, pos.z);
-		entity->mesh = Mesh::Get("data/biglib/SamuraiPack/Buildings/SM_Bld_Room_Long_01_54.obj");
-
-		entity->texture = Texture::Get("data/biglib/SamuraiPack/PolygonSamurai_Tex_01.png");
-		entity->shader = Shader::Get("data/shaders/basic.vs", "data/shaders/shadows_fragment.fs");
-		entity->type = STATIC;
-		scene->entities.push_back(entity);
-	}
-
 	if (Input::wasKeyPressed(SDL_SCANCODE_J))
 	{
 		EntityMesh* entity = new EntityMesh("flag bar");
@@ -701,6 +843,86 @@ void Game::AddObjectInFront()
 		entity->texture = Texture::Get("data/biglib/GiantGeneralPack/color-atlas-new.png");
 		entity->shader = Shader::Get("data/shaders/basic.vs", "data/shaders/shadows_fragment.fs");
 		entity->type = STATIC;
+		scene->entities.push_back(entity);
+	}*/
+
+	if (Input::wasKeyPressed(SDL_SCANCODE_1))
+	{
+		EntityMesh* entity = new EntityMesh("hombre");
+		entity->model->setTranslation(pos.x, pos.y, pos.z);
+		entity->mesh = Mesh::Get("data/man.mesh");
+
+		entity->texture = Texture::Get("DATA/BIGLIB/GIANTGENERALPACK/COLOR-ATLAS-NEW.PNG");
+		entity->shader = Shader::Get("data/shaders/skinning.vs", "data/shaders/shadows_fragment.fs");
+		entity->type = DYNAMIC;
+		entity->anim = Animation::Get("data/animation/man/animations_breathing_idle.skanim");
+		entity->animation = "data/animation/man/animations_breathing_idle.skanim";
+		scene->entities.push_back(entity);
+	}
+	if (Input::wasKeyPressed(SDL_SCANCODE_2))
+	{
+		EntityMesh* entity = new EntityMesh("hombre");
+		entity->model->setTranslation(pos.x, pos.y, pos.z);
+		entity->mesh = Mesh::Get("data/man.mesh");
+
+		entity->texture = Texture::Get("DATA/BIGLIB/GIANTGENERALPACK/COLOR-ATLAS-NEW.PNG");
+		entity->shader = Shader::Get("data/shaders/skinning.vs", "data/shaders/shadows_fragment.fs");
+		entity->type = DYNAMIC;
+		entity->anim = Animation::Get("data/animation/man/animations_talking.skanim");
+		entity->animation = "data/animation/man/animations_talking.skanim";
+		scene->entities.push_back(entity);
+	}
+	if (Input::wasKeyPressed(SDL_SCANCODE_3))
+	{
+		EntityMesh* entity = new EntityMesh("hombre");
+		entity->model->setTranslation(pos.x, pos.y, pos.z);
+		entity->mesh = Mesh::Get("data/man.mesh");
+
+		entity->texture = Texture::Get("DATA/BIGLIB/GIANTGENERALPACK/COLOR-ATLAS-NEW.PNG");
+		entity->shader = Shader::Get("data/shaders/skinning.vs", "data/shaders/shadows_fragment.fs");
+		entity->type = DYNAMIC;
+		entity->anim = Animation::Get("data/animation/man/animations_walking.skanim");
+		entity->animation = "data/animation/man/animations_walking.skanim";
+		scene->entities.push_back(entity);
+	}
+
+	if (Input::wasKeyPressed(SDL_SCANCODE_4))
+	{
+		EntityMesh* entity = new EntityMesh("mujer");
+		entity->model->setTranslation(pos.x, pos.y, pos.z);
+		entity->mesh = Mesh::Get("data/woman.mesh");
+
+		entity->texture = Texture::Get("DATA/BIGLIB/GIANTGENERALPACK/COLOR-ATLAS-NEW.PNG");
+		entity->shader = Shader::Get("data/shaders/skinning.vs", "data/shaders/shadows_fragment.fs");
+		entity->type = DYNAMIC;
+		entity->anim = Animation::Get("data/animation/woman/animations_breathing_idle.skanim");
+		entity->animation = "data/animation/woman/animations_breathing_idle.skanim";
+		scene->entities.push_back(entity);
+	}
+	if (Input::wasKeyPressed(SDL_SCANCODE_5))
+	{
+		EntityMesh* entity = new EntityMesh("mujer");
+		entity->model->setTranslation(pos.x, pos.y, pos.z);
+		entity->mesh = Mesh::Get("data/woman.mesh");
+
+		entity->texture = Texture::Get("DATA/BIGLIB/GIANTGENERALPACK/COLOR-ATLAS-NEW.PNG");
+		entity->shader = Shader::Get("data/shaders/skinning.vs", "data/shaders/shadows_fragment.fs");
+		entity->type = DYNAMIC;
+		entity->anim = Animation::Get("data/animation/woman/animations_talking.skanim");
+		entity->animation = "data/animation/woman/animations_talking.skanim";
+		scene->entities.push_back(entity);
+	}
+	if (Input::wasKeyPressed(SDL_SCANCODE_6))
+	{
+		EntityMesh* entity = new EntityMesh("mujer");
+		entity->model->setTranslation(pos.x, pos.y, pos.z);
+		entity->mesh = Mesh::Get("data/woman.mesh");
+
+		entity->texture = Texture::Get("DATA/BIGLIB/GIANTGENERALPACK/COLOR-ATLAS-NEW.PNG");
+		entity->shader = Shader::Get("data/shaders/skinning.vs", "data/shaders/shadows_fragment.fs");
+		entity->type = DYNAMIC;
+		entity->anim = Animation::Get("data/animation/woman/animations_walking.skanim");
+		entity->animation = "data/animation/woman/animations_walking.skanim";
 		scene->entities.push_back(entity);
 	}
 }

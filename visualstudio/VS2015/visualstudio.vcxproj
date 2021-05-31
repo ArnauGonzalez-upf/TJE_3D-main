@@ -144,6 +144,7 @@
     <ClCompile Include="..\..\src\input.cpp" />
     <ClCompile Include="..\..\src\main.cpp" />
     <ClCompile Include="..\..\src\mesh.cpp" />
+    <ClCompile Include="..\..\src\pathfinders.cpp" />
     <ClCompile Include="..\..\src\rendercall.cpp" />
     <ClCompile Include="..\..\src\rendertotexture.cpp" />
     <ClCompile Include="..\..\src\scene.cpp" />
@@ -169,6 +170,7 @@
     <ClInclude Include="..\..\src\includes.h" />
     <ClInclude Include="..\..\src\input.h" />
     <ClInclude Include="..\..\src\mesh.h" />
+    <ClInclude Include="..\..\src\pathfinders.h" />
     <ClInclude Include="..\..\src\rendercall.h" />
     <ClInclude Include="..\..\src\rendertotexture.h" />
     <ClInclude Include="..\..\src\scene.h" />

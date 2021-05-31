@@ -9,8 +9,10 @@
 #include "animation.h"
 #include <iostream>
 #include <fstream>
+#include "pathfinders.h"
 
 std::map<const char*, Scene*> Scene::s_loaded_scenes;
+
 void Scene::registerAs(const char* filename)
 {
 	//this->name = name;
@@ -65,17 +67,28 @@ Scene::Scene(const char* filename)
 			ent->texture = Texture::Get(parser->getword());
 
 		}
-		if (type == "SHADER")
-		{
-			EntityMesh* ent = (EntityMesh*)entities.back();
-			ent->shader = Shader::Get("data/shaders/basic.vs", parser->getword());
-		}
 		if (type == "TYPE")
 		{
 			EntityMesh* ent = (EntityMesh*)entities.back();
 			std::string tipo = parser->getword();
 			if (tipo == "STATIC") { ent->type = STATIC; static_entities.push_back(ent); }
 			else { ent->type = DYNAMIC; dynamic_entities.push_back(ent); }
+		}
+		if (type == "OBJ")
+		{
+			EntityMesh* ent = (EntityMesh*)entities.back();
+			ent->moves = true;
+			float x = parser->getfloat();
+			float y = parser->getfloat();
+			ent->obj = Vector2(x, y);
+		}
+		if (type == "SHADER")
+		{
+			EntityMesh* ent = (EntityMesh*)entities.back();
+			if (ent->type == STATIC)
+				ent->shader = Shader::Get("data/shaders/basic.vs", parser->getword());
+			if (ent->type == DYNAMIC)
+				ent->shader = Shader::Get("data/shaders/skinning.vs", parser->getword());
 		}
 		if (type == "FRONT")
 		{
@@ -93,6 +106,13 @@ Scene::Scene(const char* filename)
 			float y = parser->getfloat();
 			float z = parser->getfloat();
 			ent->model->translate(x, y, z);
+		}
+		if (type == "ANIM")
+		{
+			EntityMesh* ent = (EntityMesh*)entities.back();
+			const char* value = parser->getword();
+			ent->anim = Animation::Get(value);
+			ent->animation = value;
 		}
 		if (type == "LIGHT_NAME")
 		{
@@ -116,7 +136,7 @@ Scene::Scene(const char* filename)
 				light->model->setFrontAndOrthonormalize(target - pos);
 
 				light->cam->lookAt(light->model->getTranslation(), *light->model * Vector3(0, 0, 1), light->model->rotateVector(Vector3(0, 1, 0)));
-				light->cam->setOrthographic(-50, 50, -50, 50, 0.1, 500);
+				light->cam->setOrthographic(-30, 30, -20, 20, 0.1, 70);
 
 				light->shadow_fbo = new FBO();
 				light->shadow_fbo->setDepthOnly(8192, 8192);
@@ -182,6 +202,27 @@ Scene::Scene(const char* filename)
 
 	player_pos_orig = player->getPosition();
 	player_front_orig = player->model->frontVector();
+
+	EntityMesh* ent = (EntityMesh*)entities.back();
+
+	int startx = ent->getPosition().x;
+	int starty = ent->getPosition().z;
+
+	int targetx = clamp(floor(ent->obj.x), 0, 36);
+	int targety = clamp(floor(ent->obj.y), 0, 72);
+
+	ent->current_path_steps = BFSFindPath(
+		startx, starty, //origin (tienen que ser enteros)
+		targetx, targety, //target (tienen que ser enteros)
+		Game::instance->map_array, //pointer to map data
+		36, 72, //map width and height
+		ent->path, //pointer where the final path will be stored
+		100); //max supported steps of the final path
+
+	ent->paso = 0;
+	ent->moves = true;
+
+	std::cout << "Steps: " + std::to_string(ent->current_path_steps) << std::endl;
 }
 
 void Scene::drawSky(Camera* camera)
@@ -209,7 +250,11 @@ void Scene::exportEscene()
 {
 	std::ofstream myfile;
 
-	//myfile.open("data/casa.txt"); //CAMBIA AL ARCHIVO QUE ESTES EDITANDO
+	myfile.open("data/combate.txt"); //CAMBIA AL ARCHIVO QUE ESTES EDITANDO
+
+	myfile << "LIGHT_NAME SUN\n";
+	myfile << "LIGHT_TYPE DIRECTIONAL\n";
+	myfile << "CAMERA_MODE FOLLOWING\n";
 
 	for (int i = 0; i < entities.size(); ++i)
 	{
@@ -218,10 +263,15 @@ void Scene::exportEscene()
 		myfile << "NAME " + ent->name + "\n";
 		myfile << "MESH " + ent->mesh->name + "\n";
 		myfile << "TEXTURE " + ent->texture->filename + "\n";
-		myfile << "SHADER " + ent->shader->ps_filename + "\n";
+
+		if (ent->type == DYNAMIC)
+			myfile << "ANIM " + ent->animation + "\n";
 
 		if (ent->type == STATIC) { myfile << "TYPE STATIC\n"; }
 		else { myfile << "TYPE DYNAMIC\n"; }
+
+		//myfile << "SHADER " + ent->shader->ps_filename + "\n";
+		myfile << "SHADER DATA/SHADERS/SHADOWS_FRAGMENT.FS\n";
 
 		Vector3 pos = ent->model->getTranslation();
 		myfile << "POSITION " + std::to_string(pos.x) + " " + std::to_string(pos.y) + " " + std::to_string(pos.z) + "\n";
@@ -317,8 +367,14 @@ void EntityMesh::render(Camera* camera)
 				shader->setUniform("u_shadow_viewproj", shadow_proj);
 			}
 
-			//do the draw call
-			mesh->render(GL_TRIANGLES);
+			if (type == DYNAMIC)
+			{
+				mesh->renderAnimated(GL_TRIANGLES, &anim->skeleton);
+			}
+			else {
+				//do the draw call
+				mesh->render(GL_TRIANGLES);
+			}
 		}
 		//disable shader
 		shader->disable();
@@ -339,31 +395,55 @@ void EntityMesh::update(float dt)
 	bool change_stage = false;
 	Vector3 last_pos = model->getTranslation();
 	static bool zenscene = false;
+	bool movement = false;
+	bool forward = false;
+
+	anim->assignTime(Game::instance->time);
 
 	if (this == Game::instance->scene->player)
 	{
-		if (zenscene == true){
-			if (Input::isKeyPressed(SDL_SCANCODE_D)) model->translate(0.0f, 0.0f, 1.0f * 10 * dt);
-			if (Input::isKeyPressed(SDL_SCANCODE_A)) model->translate(0.0f, 0.0f, -1.0f * 10 * dt);
+		//Game::instance->map[(int)(floor(last_pos.x))][(int)(floor(last_pos.z))] = 1;
+		if (zenscene == true) {
+			if (Input::isKeyPressed(SDL_SCANCODE_D)) { model->translate(0.0f, 0.0f, 1.0f * 5 * dt); movement = true; forward = true; }
+			if (Input::isKeyPressed(SDL_SCANCODE_A)) { model->translate(0.0f, 0.0f, -1.0f * 5 * dt); movement = true; }
 		}
 		else {
-			if (Input::isKeyPressed(SDL_SCANCODE_LSHIFT)) model->translate(0.0f, 0.0f, 1.0f * 15 * dt); //move faster with left shift
-			if (Input::isKeyPressed(SDL_SCANCODE_W)) model->translate(0.0f, 0.0f, 1.0f * 10 * dt);
-			if (Input::isKeyPressed(SDL_SCANCODE_S)) model->translate(0.0f, 0.0f, -1.0f * 10 * dt);
-			if (Input::isKeyPressed(SDL_SCANCODE_D)) model->rotate(90.0f * dt * DEG2RAD, Vector3(0.0f, 1.0f, 0.0f));
-			if (Input::isKeyPressed(SDL_SCANCODE_A)) model->rotate(-90.0f * dt * DEG2RAD, Vector3(0.0f, 1.0f, 0.0f));
+			if (Input::isKeyPressed(SDL_SCANCODE_LSHIFT)) { model->translate(0.0f, 0.0f, 1.0f * 10 * dt); movement = true; }//move faster with left shift
+			if (Input::isKeyPressed(SDL_SCANCODE_W)) { model->translate(0.0f, 0.0f, 1.0f * 5 * dt);  movement = true; forward = true; }
+			if (Input::isKeyPressed(SDL_SCANCODE_S)) { model->translate(0.0f, 0.0f, -1.0f * 5 * dt); movement = true; }
+			if (Input::isKeyPressed(SDL_SCANCODE_D)) { model->rotate(90.0f * dt * DEG2RAD, Vector3(0.0f, 1.0f, 0.0f)); }
+			if (Input::isKeyPressed(SDL_SCANCODE_A)) { model->rotate(-90.0f * dt * DEG2RAD, Vector3(0.0f, 1.0f, 0.0f)); }
+		}
+
+		if (movement)
+		{
+			//anim->assignTime(Game::instance->time);
+			anim = Animation::Get("data/animations_walking.skanim");
+			if (forward)
+				anim->assignTime(Game::instance->time);
+			else
+				anim->assignTime(-Game::instance->time);
+			//blendSkeleton(&anim->skeleton, &Animation::Get("data/animations_walking.skanim")->skeleton, 0.5f, &anim->skeleton);
+		}
+		else
+		{
+			anim = Animation::Get("data/animations_breathing_idle.skanim");
+			anim->assignTime(Game::instance->time);
 		}
 	}
-	//else
-	//{	updateNPC_IA();
-	//}
-
+	else if (moves)
+	{
+		IAactions();
+	}
+	else
+		return;
+	
 	Vector3 characterTargetCenter = model->getTranslation() + Vector3(0, 1.5, 0);
 	for (int i = 0; i < Game::instance->scene->entities.size(); ++i)
 	{
 		EntityMesh* current = (EntityMesh*)Game::instance->scene->entities[i];
 
-		if (this == current)
+		if (this == current || current == Game::instance->scene->player)
 			continue;
 
 		Vector3 coll;
@@ -417,6 +497,59 @@ void EntityMesh::update(float dt)
 		Vector3 front = model->frontVector();
 		model->setTranslation(last_pos.x - push_away.x, 0, last_pos.z - push_away.z);
 		model->setFrontAndOrthonormalize(front);
+	}
+}
+
+void EntityMesh::IAactions()
+{
+	if (current_path_steps > 0 && paso < current_path_steps)
+	{
+		int posx = floor(getPosition().x);
+		int posy = floor(getPosition().z);
+
+		int gridIndex = path[paso];
+		//std::cout << std::to_string(gridIndex) << std::endl;
+		int posxgrid = gridIndex % 36;
+		int posygrid = gridIndex / 36;
+
+		Vector2 bruh = Vector2(posxgrid - posx, posygrid - posy);
+
+		Vector2 toTarget = bruh.normalize();
+
+		float angle_in_rad = atan2(toTarget.x, toTarget.y);
+
+		//if (/*yaw != angle_in_rad ||*/ angle_in_rad != 0)
+		if (abs(yaw - angle_in_rad) > 0.05)
+		{
+			model->rotate(yaw - angle_in_rad, Vector3(0.0f, 1.0f, 0.0f));
+			yaw = angle_in_rad;
+		}
+
+		model->translate(0.0f, 0.0f, 1.0f * 3 * Game::instance->elapsed_time);
+
+		if ((int)posx == (int)posxgrid && (int)posy == (int)posygrid)
+		{
+			paso += 1;
+		}
+	}
+	else
+	{
+		int startx = getPosition().x;
+		int starty = getPosition().z;
+
+		int targetx = clamp(floor(31), 0, 36);
+		int targety = clamp(floor(35), 0, 72);
+
+		current_path_steps = BFSFindPath(
+			startx, starty, //origin (tienen que ser enteros)
+			targetx, targety, //target (tienen que ser enteros)
+			Game::instance->map_array, //pointer to map data
+			36, 72, //map width and height
+			path, //pointer where the final path will be stored
+			100); //max supported steps of the final path
+
+		paso = 0;
+		moves = true;
 	}
 }
 

@@ -71,6 +71,9 @@ public:
 
 	FBO* fbo_shadow;
 
+	uint8 map[36][72] = {};
+	uint8* map_array;
+
 	//some vars
 	Camera* camera; //our global camera
 	bool mouse_locked; //tells if the mouse is locked (not seen)
@@ -95,6 +98,13 @@ public:
 	void renderMeshWithMaterialShadow(const Matrix44& model, Mesh* mesh, EntityLight* light);
 
 	void AddObjectInFront();
+
+	int startx;
+	int starty;
+
+	int path[100];
+
+	int current_path_steps = -1;
 };
 
 

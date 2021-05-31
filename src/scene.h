@@ -6,6 +6,7 @@
 #include "fbo.h"
 #include "camera.h"
 #include "extra\textparser.h"
+#include "animation.h"
 
 enum eReadingType {
     ENT_OBJ = 1,
@@ -96,6 +97,18 @@ public:
     Shader* shader;
     Vector4 color;
     eObjectType type;
+
+    Animation* anim;
+    std::string animation;
+
+    bool moves = false;
+    Vector2 obj;
+    int paso = -1;
+    int last_paso = -1;
+    int current_path_steps;
+    int path[500];
+    bool first = true;
+    float yaw = 0.0;
     
     char* text;
     bool object;
@@ -105,6 +118,7 @@ public:
     //methods overwritten 
     void render(Camera* camera);
     void update(float elapsed_time);
+    void IAactions();
 };
 
 class Scene
@@ -117,7 +131,7 @@ public:
     std::vector<Entity*> static_entities;
     std::vector<Entity*> dynamic_entities;
 
-    Entity* player;
+    EntityMesh* player;
     Vector3 player_pos_orig;
     Vector3 player_front_orig;
 
